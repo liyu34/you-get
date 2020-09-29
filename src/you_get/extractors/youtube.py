@@ -2,6 +2,7 @@
 
 from ..common import *
 from ..extractor import VideoExtractor
+import html
 
 from xml.dom.minidom import parseString
 
@@ -157,11 +158,11 @@ class YouTube(VideoExtractor):
             log.wtf('[Failed] Unsupported URL pattern.')
 
         video_page = get_content('https://www.youtube.com/playlist?list=%s' % playlist_id)
-        from html.parser import HTMLParser
-        videos = sorted([HTMLParser().unescape(video)
-                         for video in re.findall(r'<a href="(/watch\?[^"]+)"', video_page)
+        # don't know why '&' is decode to '\\u0026'
+        video_page = video_page.replace('\\u0026', '&')
+        videos = sorted([video for video in re.findall(r'/watch\?[^"]+', video_page)
                          if parse_query_param(video, 'index')],
-                        key=lambda video: parse_query_param(video, 'index'))
+                        key=lambda video: int(parse_query_param(video, 'index')))
 
         # Parse browse_ajax page for more videos to load
         load_more_href = match1(video_page, r'data-uix-load-more-href="([^"]+)"')
@@ -171,7 +172,7 @@ class YouTube(VideoExtractor):
             load_more_widget_html = browse_data['load_more_widget_html']
             content_html = browse_data['content_html']
             vs = set(re.findall(r'href="(/watch\?[^"]+)"', content_html))
-            videos += sorted([HTMLParser().unescape(video)
+            videos += sorted([html.unescape(video)
                               for video in list(vs)
                               if parse_query_param(video, 'index')])
             load_more_href = match1(load_more_widget_html, r'data-uix-load-more-href="([^"]+)"')
